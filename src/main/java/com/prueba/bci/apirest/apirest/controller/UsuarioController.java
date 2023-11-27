@@ -67,7 +67,8 @@ public class UsuarioController {
     }
 
     @PutMapping("/actualizar/{id}")
-    public ResponseEntity<?> editar(@Valid @RequestBody Usuario usuario, BindingResult result, @PathVariable UUID id){
+    public ResponseEntity<?> editar(@Valid @RequestBody Usuario usuario, BindingResult result, @PathVariable UUID id,  @RequestHeader("Authorization") String token,
+                                    @RequestHeader("user") String user){
         Optional<Usuario> o = Optional.ofNullable(usuarioService.getUsuarioById(id));
 
         if(result.hasErrors()){
@@ -77,20 +78,20 @@ public class UsuarioController {
         if(!o.isPresent()){
             return ResponseEntity.notFound().build();
         }
+        if (this.validToken(token, user)) {
         Usuario usuarioDb = o.get();
         usuarioDb.setName(usuario.getName());
         usuarioDb.setEmail(usuario.getEmail());
         usuarioDb.setPassword(usuario.getPassword());
 
-        /*
-        usuarioDb.getPhones()
-                .stream()
-                .filter(tdb -> !usuario.getPhones().contains(tdb))
-                .forEach(usuarioDb::removePhones);
-
-        usuarioDb.setPhones(usuario.getPhones()); */
-
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.createUsuario(usuarioDb));
+        }else{
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("TOKEN NO VALIDO:" + this.error);
+        }
+
+
+
+
     }
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminar (@PathVariable("id") UUID id){
