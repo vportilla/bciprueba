@@ -4,31 +4,47 @@ package com.prueba.bci.apirest.apirest.controller;
 import com.prueba.bci.apirest.apirest.model.Telefono;
 import com.prueba.bci.apirest.apirest.model.Usuario;
 import com.prueba.bci.apirest.apirest.respository.UsuarioService;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+
+
 import jakarta.validation.Valid;
-import org.aspectj.bridge.Message;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
+import  javax.crypto.SecretKey;
+import  javax.crypto.spec.SecretKeySpec;
 @RestController
 @RequestMapping("api/usuarios")
 public class UsuarioController {
 
+    private String error;
     @Autowired
     private UsuarioService usuarioService;
 
     @PostMapping("/registro")
-    public ResponseEntity<?> crear(@Valid @RequestBody Usuario usuario){
+    public ResponseEntity<?> crear(@Valid @RequestBody Usuario usuario, BindingResult result, @RequestHeader("Authorization") String token,
+                                  @RequestHeader("user") String user) {
 
-        Usuario usuarioDb = usuarioService.createUsuario(usuario);
-        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioDb);
+        if(result.hasErrors()){
+            return this.validar(result);
+        }
+
+         if (this.validToken(token, user)) {
+            Usuario usuarioDb = usuarioService.createUsuario(usuario);
+            return ResponseEntity.status(HttpStatus.CREATED).body(usuarioDb);
+           }else{
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("TOKEN NO VALIDO:" + this.error);
+        }
+
     }
 
     @GetMapping
@@ -38,33 +54,41 @@ public class UsuarioController {
 
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> ver(@PathVariable UUID id){
-        Optional<Usuario> o = Optional.ofNullable(usuarioService.getUsuarioById(id));
-        if(o.isEmpty()){
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> ver(@PathVariable UUID id, @RequestHeader("Authorization") String token,
+                                 @RequestHeader("user") String user) {
+        if (this.validToken(token, user)) {
+            Optional<Usuario> o = Optional.ofNullable(usuarioService.getUsuarioById(id));
+            if (o.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(o.get());
         }
-        return ResponseEntity.ok(o.get());
+        return null;
     }
 
     @PutMapping("/actualizar/{id}")
-    public ResponseEntity<?> editar(@RequestBody Usuario usuario, @PathVariable UUID id){
+    public ResponseEntity<?> editar(@Valid @RequestBody Usuario usuario, BindingResult result, @PathVariable UUID id){
         Optional<Usuario> o = Optional.ofNullable(usuarioService.getUsuarioById(id));
+
+        if(result.hasErrors()){
+            return this.validar(result);
+        }
+
         if(!o.isPresent()){
-             return ResponseEntity.notFound().build();
+            return ResponseEntity.notFound().build();
         }
         Usuario usuarioDb = o.get();
         usuarioDb.setName(usuario.getName());
         usuarioDb.setEmail(usuario.getEmail());
         usuarioDb.setPassword(usuario.getPassword());
 
-        List<Telefono> eliminados = new ArrayList<>();
-
+        /*
         usuarioDb.getPhones()
                 .stream()
                 .filter(tdb -> !usuario.getPhones().contains(tdb))
                 .forEach(usuarioDb::removePhones);
 
-        usuarioDb.setPhones(usuario.getPhones());
+        usuarioDb.setPhones(usuario.getPhones()); */
 
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.createUsuario(usuarioDb));
     }
@@ -72,6 +96,40 @@ public class UsuarioController {
     public ResponseEntity<?> eliminar (@PathVariable("id") UUID id){
         usuarioService.deleteUsuarios(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private SecretKey getSecretKey() {
+
+        byte[] secretKeyBytes = "estaesunaclavedeejemploparalapostulaciondeunproyectoparaunclienteenparticular".getBytes();
+        return new SecretKeySpec(secretKeyBytes, "HmacSHA256");
+    }
+    public boolean validToken(String token, String expectedUser) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(getSecretKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            // Aquí asumimos que el atributo "alias" es un String en el cuerpo del token.
+            String alias = claims.get("alias", String.class);
+
+            // Verifica si el alias es "ROOT" y si el usuario esperado coincide.
+            return expectedUser.equals(alias);
+
+        } catch (Exception e) {
+            // Manejar excepciones, como token expirado, firma inválida, etc.
+            error = e.getMessage();
+            return false;
+        }
+    }
+
+    private ResponseEntity<?> validar(BindingResult result){
+        Map<String, Object> errores = new HashMap<>();
+        result.getFieldErrors().forEach(err -> {
+            errores.put("mensaje",  "Error en : "+err.getField() + " " + err.getDefaultMessage());
+        });
+        return ResponseEntity.badRequest().body(errores);
     }
 
 

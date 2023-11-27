@@ -2,8 +2,7 @@ package com.prueba.bci.apirest.apirest.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -18,16 +17,17 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotNull
-    @NotBlank(message = "El nombre no puede estar vacio")
+    @NotEmpty
     private String name;
 
-     @NotNull
-    @NotBlank(message = "El mail no puede estar vacio")
+    @NotEmpty
+    @Email
+    @Pattern(regexp = "^[^@]+@[^@]+\\.[a-zA-Z]{2,}$", message = "Formato incorrecto")
     private String email;
 
-     @NotNull
-    //@NotBlank(message = "la password no puede estar vacia")
+    @NotEmpty
+    @Size(min = 8, max = 12, message = "El largo de la password debe ser 8 a 12 digítos")
+    @Pattern(regexp ="^(?=\\w*\\d)(?=\\w*[A-Z])(?=\\w*[a-z])\\S{8,12}$", message = "Patron incorrecto")
     private String password;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -46,6 +46,7 @@ public class Usuario {
 
     @JsonIgnoreProperties(value ={"usuario"}, allowSetters = true)
     @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @NotEmpty
     private List<Telefono> phones;
 
 
@@ -116,6 +117,23 @@ public class Usuario {
 
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+
+    public Date getModified() {
+        return modified;
+    }
+
+    public void setModified(Date modified) {
+        this.modified = modified;
+    }
+
+    public Date getLast_login() {
+        return last_login;
+    }
+
+    public void setLast_login(Date last_login) {
+        this.last_login = last_login;
     }
 
     public List<Telefono> getPhones() {

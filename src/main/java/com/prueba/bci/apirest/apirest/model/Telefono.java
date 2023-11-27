@@ -2,6 +2,8 @@ package com.prueba.bci.apirest.apirest.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name="telefonos")
@@ -10,10 +12,10 @@ public class Telefono {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private Integer number;
+
     private Integer citycode;
-    private Integer countrycode;
+    private Integer countrycode; 
 
 
     @JsonIgnoreProperties(value ={"telefono"})
